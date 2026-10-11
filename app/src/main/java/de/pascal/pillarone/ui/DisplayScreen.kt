@@ -41,6 +41,10 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
+import de.pascal.pillarone.media.MediaSessionStatus
+import de.pascal.pillarone.media.MediaAccessDecision
+import de.pascal.pillarone.ble.MediaBridgeStatus
 import de.pascal.pillarone.R
 import de.pascal.pillarone.ble.BleDevice
 import de.pascal.pillarone.ble.BleIssue
@@ -65,6 +69,8 @@ fun DisplayScreen(
     onDisconnect: () -> Unit,
     onSendTurn: () -> Unit,
     onSendOff: () -> Unit,
+    media: MediaSessionStatus = MediaSessionStatus(),
+    onEnableMedia: () -> Unit = {},
 ) {
     val available = state.bluetoothAvailable && state.bluetoothEnabled && state.permissionsGranted
     val connected = state.phase in setOf(
@@ -190,6 +196,59 @@ fun DisplayScreen(
                                 modifier = Modifier.testTag("disconnect-button"),
                             ) { Text(stringResource(R.string.disconnect)) }
                         }
+                    }
+                }
+            }
+            item {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionTitle(R.string.media_title)
+                    val access = MediaAccessDecision.decide(media.accessGranted, media.connected, media.playerPackage != null)
+                    Text(stringResource(when {
+                        access == MediaAccessDecision.PERMISSION_MISSING -> R.string.media_access_required
+                        access == MediaAccessDecision.LISTENER_DISCONNECTED -> R.string.media_listener_pending
+                        access == MediaAccessDecision.NO_SESSION -> R.string.media_no_session
+                        state.phase != ConnectionPhase.READY -> R.string.media_display_disconnected
+                        state.mediaBridgeStatus == MediaBridgeStatus.MISSING_CHARACTERISTIC -> R.string.media_bridge_old_firmware
+                        state.mediaBridgeStatus == MediaBridgeStatus.UNSUPPORTED -> R.string.media_bridge_unsupported
+                        state.mediaBridgeStatus == MediaBridgeStatus.RETRY_WAIT -> R.string.media_bridge_retry
+                        state.mediaBridgeStatus == MediaBridgeStatus.FAILED -> R.string.media_bridge_failed
+                        state.mediaBridgeStatus == MediaBridgeStatus.SUBSCRIBING -> R.string.media_bridge_pending
+                        !state.mediaBridgeAvailable -> R.string.media_bridge_unavailable
+                        !state.mediaBridgeEnabled -> R.string.media_bridge_pending
+                        state.lastMetadataGattCompleteAt != null -> R.string.media_bridge_transmitted
+                        else -> R.string.media_bridge_active
+                    }), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("media-status"))
+                    if (state.phase == ConnectionPhase.READY) {
+                        Text(stringResource(R.string.media_diagnostics,
+                            stringResource(if (state.mediaCharacteristicFound) R.string.media_found else R.string.media_missing),
+                            stringResource(if (state.mediaCccdFound) R.string.media_found else R.string.media_missing)),
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("media-discovery"))
+                    }
+                    if (state.mediaBridgeStatus == MediaBridgeStatus.RETRY_WAIT) {
+                        Text(stringResource(R.string.media_retry_count, state.mediaBridgeRetryCount, 3),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (state.mediaBridgeError != null || media.listenerError != null) {
+                        Text(listOfNotNull(state.mediaBridgeError, state.mediaBridgeGattStatus?.let { "GATT $it" },
+                            media.listenerError).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("media-error"))
+                    }
+                    if (media.connected && media.playerPackage != null) {
+                        Text(stringResource(if (media.snapshot.playing) R.string.media_playing else R.string.media_paused),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (!media.accessGranted) {
+                        OutlinedButton(onClick = onEnableMedia, modifier = Modifier.testTag("media-permission")) {
+                            Text(stringResource(R.string.media_enable))
+                        }
+                    }
+                    if (media.snapshot.title.isNotEmpty()) {
+                        Text(media.snapshot.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium)
+                    }
+                    if (media.snapshot.artist.isNotEmpty()) {
+                        Text(media.snapshot.artist, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

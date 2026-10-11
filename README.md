@@ -86,14 +86,18 @@ lokale SDK-Pfade nicht versionieren.
 Android 12+ nutzt `BLUETOOTH_SCAN` und `BLUETOOTH_CONNECT`, ohne
 Standortfreigabe fuer diesen Test. `neverForLocation` ist deklariert, da keine
 Standorte aus Scandaten abgeleitet werden. Die Scanerkennung mit echter
-Firmware muss trotzdem geprueft werden. Keine Advertising-, Internet-,
-Benachrichtigungs- oder Hintergrundstandortfreigabe wird angefordert.
+Firmware muss trotzdem geprueft werden. Beim Verbinden wird ab Android 13 die
+Benachrichtigungsfreigabe angefragt; Ablehnung blockiert BLE nicht. Keine
+Advertising-, Internet- oder Hintergrundstandortfreigabe wird angefordert.
 
 ## Architektur und Grenzen
 
 - `ui/`: Compose-Ansicht und ViewModel, vom BLE-Transport getrennt.
 - `ble/`: Scan, GATT-Verbindung, Service-Erkennung, v1-Subscription/Handshake
-  und geordnete Schreibvorgaenge mit Transport- und App-Antwort-Timeouts.
+   und geordnete Schreibvorgaenge mit Transport- und App-Antwort-Timeouts;
+   gemeinsame Application-Runtime und connectedDevice-Foreground-Service.
+- `media/`: separat freizugebender NotificationListenerService fuer echte
+   MediaSessions und Mediensteuerung; Metadaten-Collector im BLE-Service.
 - `protocol/`: UI-unabhaengiger Legacy-/v1-Codec, Byte-/Feldvalidierung,
   Fragmentassemblierung und Zuordnung von App-Antworten.
 
@@ -103,15 +107,36 @@ Legacy bleibt bei maximal 20 Nutzdatenbytes (ATT-MTU 23), ohne Fragmentierung.
 V1 fragmentiert Nachrichten bis 192 Bytes in einzelne GATT-Frames mit maximal
 20 Bytes inklusive Header. Keine groessere MTU ist erforderlich.
 
-Die Verbindung wird beim Verlassen der sichtbaren App oder Sperren des
-Handys beendet; ein Konfigurationswechsel behaelt die Sitzung. **Vorher OFF
+Eine aus der sichtbaren App gestartete BLE-Verbindung bleibt bei Home,
+Activity-Ende, Entfernen aus der App-Uebersicht und gesperrtem Handy im
+connectedDevice-Foreground-Service aktiv. UI und Service teilen einen Controller;
+das ViewModel besitzt weder GATT noch den Medien-Collector. Scans laufen nur
+bei sichtbarer UI. Die leise Verbindungsbenachrichtigung bietet **Trennen**.
+Bei verweigerter Notification-Freigabe zeigt Android den Service weiterhin im
+Task Manager an, nicht im Benachrichtigungsbereich. **Vor dem Trennen OFF
 senden.** Im Legacy-Modus garantiert das alte Protokoll weder Annahme noch
 Ablauf eines Hinweises, und Trennen kann einen alten Hinweis auf dem Display
 zuruecklassen. V1-Firmware muss Navigation bei Disconnect sofort loeschen.
 Ein erfolgreicher GATT-Write ist keine Bestaetigung der sichtbaren Anzeige.
-Bei sichtbarer App ist eine begrenzte Wiederverbindung implementiert;
-Hintergrundnavigation fehlt weiterhin.
+Begrenzte Wiederverbindung funktioniert waehrend der Service-Sitzung auch
+im Hintergrund; echte Hintergrundnavigation fehlt weiterhin.
 v1-Geraeteidentitaet wird erst nach dem Handshake aus der Firmware gelesen.
+
+Mit freigegebenem Medienzugriff beobachtet die App echte MediaSessions und
+uebertraegt Titel, Interpret und Wiedergabezustand auch im Hintergrund. Der
+5-Sekunden-Heartbeat bleibt aktiv. Mediensteuerung geht an den ausgewaehlten
+Player, ohne doppelte HID-Aktion. Bei explizitem Trennen wird die Bridge-CCCD
+nach dem laufenden Austausch abgemeldet, bevor der Service beendet wird.
+Medienvertrag und offene Hardware-Abnahme:
+[Medien-Erweiterung](docs/protocol/PILLAR_ONE_MEDIA_V1.md).
+
+Kein automatischer Neustart nach Prozessende (START_NOT_STICKY), kein Boot-
+Receiver, kein unbegrenzter Wake-Lock und keine automatische Ausnahme von
+Akkuoptimierung. Force-Stop und Androids Task-Manager-Stop beenden den Betrieb.
+OnePlus/OxygenOS kann Hintergrundprozesse zusaetzlich beenden; bei Problemen
+die App-Akkueinstellungen fuer Hintergrundbetrieb/uneingeschraenkte Nutzung
+bewusst pruefen. Dauerbetrieb und gesperrter Bildschirm sind noch nicht an
+echter Hardware abgenommen.
 
 Am 04.10.2026 vom Nutzer auf dem OnePlus und echten Display bestaetigt:
 App installiert, Display verbunden, `Rechts / 200 m` sichtbar und `OFF`
@@ -130,8 +155,9 @@ OnePlus bestaetigen; fuer die Ersteinrichtung muss das Display im lokal
 gestarteten Kopplungsmodus sein. Bestehende Android-Bonds werden wiederverwendet,
 aber erst HELLO_ACK bestaetigt die App-Sitzung. Ablehnung und Timeout sind
 eigene Fehler; der normale 5-Sekunden-Schreibtimeout bleibt unveraendert.
-Der Systemdialog darf die App kurz verdecken; Home, Sperren, Trennen oder
-Ablauf der Kopplungsfrist beenden die App-Verbindung. Eine bereits gestartete
+Der Systemdialog darf die App verdecken; Home und Sperren lassen eine bereits
+gestartete Service-Verbindung bestehen. Trennen oder Ablauf der Kopplungsfrist
+beenden sie. Eine bereits gestartete
 Systemkopplung wird nicht durch versteckte Android-APIs abgebrochen.
 
 Die Oberflaeche zeigt Verbindungsaufbau, Kopplung und Bereitschaft in
@@ -162,18 +188,28 @@ beim erneuten Oeffnen der App. Wiederverbindung nach Display-Neustart ohne
 erneutes Oeffnen der App ist der folgende Ausbau.
 
 Nach einem Verbindungsabbruch einer zuvor bereiten Sitzung versucht die
-sichtbare App bis zu dreimal, dasselbe weiterhin gekoppelte Display erneut
+Service-Sitzung bis zu dreimal, dasselbe weiterhin gekoppelte Display erneut
 zu verbinden. Wartezeiten: 2, 5 und 10 Sekunden zwischen den Versuchen.
 Connect-/Discovery-Timeouts gelten zusaetzlich. Jeder Versuch erzeugt eine
 frische Sitzung und fuehrt erneut Service-Erkennung und Handshake durch.
 Keine Wiederholung von Navigationsbefehlen oder alten Testhinweisen.
 
-Manuelles Trennen, App im Hintergrund, Sperren, ausgeschaltetes Bluetooth
-oder fehlende Berechtigungen stoppen die Versuche. Kopplungs-/Protokollfehler,
+Manuelles Trennen (UI oder Notification), ausgeschaltetes Bluetooth oder fehlende
+Berechtigungen stoppen die Versuche. Home und Sperren stoppen sie nicht.
+Explizites Trennen sperrt auch ausstehende Service-Starts und automatische
+Wiederherstellung beim erneuten Oeffnen auch nach Prozessneustart; erst bewusstes
+Verbinden hebt die Sperre auf. Kopplungs-/Protokollfehler,
 fehlende Services, Schreibfehler und fachliche Ablehnungen werden nicht
 automatisch wiederholt. Nach erschoepftem Budget manuell verbinden; eine
-erfolgreiche Sitzung setzt das Budget zurueck. Keine dauerhafte
-Hintergrund-Wiederverbindung.
+erfolgreiche Sitzung setzt das Budget zurueck. Nach endgueltigem Fehler endet
+der Foreground Service; keine unbegrenzte Hintergrund-Wiederverbindung.
+
+Validierung dieses Hintergrund-Ausbaus mit Android-Studio-JBR:
+`./gradlew :app:testDebugUnitTest :app:assembleDebug
+:app:compileDebugAndroidTestKotlin --offline`: 82 Unit-Tests bestanden,
+einschliesslich 8 Lebensdauer-/Hintergrund-Reconnect-Tests. Drei neue
+Service-/Notification-Instrumentationstests wurden nur kompiliert. Keine
+Installation, kein Firmware-Upload und keine neue Hardware-Abnahme.
 
 Die langfristige Planung und SDK-Auswahl stehen in
 [docs/ANDROID_APP_START.md](docs/ANDROID_APP_START.md).

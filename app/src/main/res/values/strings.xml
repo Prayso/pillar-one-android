@@ -1,6 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Pillar One</string>
+    <string name="ble_notification_channel">Display-Verbindung</string>
+    <string name="ble_notification_connected">Display verbunden</string>
+    <string name="media_title">Medien</string>
+    <string name="media_access_required">Medienzugriff nicht freigegeben</string>
+    <string name="media_enable">Medienzugriff freigeben</string>
+    <string name="media_listener_pending">Zugriff freigegeben, Medien-Listener getrennt</string>
+    <string name="media_bridge_old_firmware">Firmware ohne Media-Characteristic</string>
+    <string name="media_bridge_unsupported">Media-Characteristic ohne benötigte Eigenschaften oder CCCD</string>
+    <string name="media_bridge_retry">Medienverbindung abgelehnt, begrenzter Wiederholungsversuch ausstehend</string>
+    <string name="media_bridge_failed">Medienverbindung fehlgeschlagen</string>
+    <string name="media_bridge_active">Medienbrücke aktiv, Metadaten noch nicht übertragen</string>
+    <string name="media_bridge_transmitted">Medienbrücke aktiv, Metadaten per GATT übertragen</string>
+    <string name="media_diagnostics">Media-UUID: %1$s · CCCD: %2$s</string>
+    <string name="media_found">gefunden</string>
+    <string name="media_missing">fehlt</string>
+    <string name="media_retry_count">Ausstehender Wiederholungsversuch: %1$d / %2$d (Heartbeat)</string>
+    <string name="media_display_disconnected">Display nicht verbunden</string>
+    <string name="media_bridge_unavailable">Medienbrücke auf diesem Display nicht verfügbar</string>
+    <string name="media_bridge_pending">Medienverbindung wird vorbereitet</string>
+    <string name="media_no_session">Keine aktive Mediensitzung</string>
+    <string name="media_playing">Wiedergabe aktiv</string>
+    <string name="media_paused">Wiedergabe pausiert</string>
     <string name="navigation_display">Display</string>
     <string name="navigation_configuration">Konfiguration</string>
     <string name="configuration_title">Pillar-One-Seiten</string>
@@ -113,10 +135,10 @@
     <string name="end_accepted">Dein Display hat das Beenden bestätigt. Bitte kontrolliere die Anzeige direkt am Display.</string>
     <string name="usage_title">Gut zu wissen</string>
     <string name="v1_limits">Hier probierst du die Anzeige aus – eine Routenführung ist noch nicht verfügbar.</string>
-    <string name="v1_foreground_limits">Lass die App geöffnet, um verbunden zu bleiben. Nach einem Verbindungsabbruch wird dein Display bis zu dreimal erneut verbunden. Sende den Testhinweis danach bei Bedarf noch einmal.</string>
+    <string name="v1_foreground_limits">Die Display-Verbindung bleibt auch bei gesperrtem Handy aktiv. Nach einem Verbindungsabbruch wird dein Display bis zu dreimal erneut verbunden. Sende den Testhinweis danach bei Bedarf noch einmal.</string>
     <string name="write_busy">Hinweis wird übertragen…</string>
     <string name="turn_written">Testhinweis übertragen. Dieses Display bestätigt die Anzeige nicht. Bitte kontrolliere „Rechts“ und „200 m“ direkt am Display.</string>
     <string name="off_written">Beenden übertragen. Bitte kontrolliere direkt am Display, ob der Hinweis verschwunden ist.</string>
     <string name="prototype_limits">Hier probierst du die Anzeige aus – eine Routenführung ist noch nicht verfügbar. Wähle bei Bedarf die Navigationsseite am Display.</string>
-    <string name="foreground_limits">Beende den Hinweis, bevor du die App verlässt oder dein Handy sperrst. Die Verbindung wird dann getrennt; ein alter Hinweis kann auf diesem Display stehen bleiben.</string>
+    <string name="foreground_limits">Die Display-Verbindung bleibt auch bei gesperrtem Handy aktiv. Beende den Hinweis vor dem Trennen; ein alter Hinweis kann auf diesem Display stehen bleiben.</string>
 </resources>

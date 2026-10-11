@@ -1,10 +1,13 @@
 package de.pascal.pillarone
 
 import android.bluetooth.BluetoothAdapter
+import android.Manifest
+import android.content.pm.PackageManager
 import android.app.KeyguardManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -12,6 +15,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
+import de.pascal.pillarone.ble.BleDevice
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.pascal.pillarone.ble.BlePermissions
 import de.pascal.pillarone.ui.DisplayScreen
@@ -19,6 +24,7 @@ import de.pascal.pillarone.ui.ConfigurationScreen
 import de.pascal.pillarone.ui.DisplayViewModel
 import de.pascal.pillarone.ui.PillarOneApp
 import de.pascal.pillarone.ui.PillarOneTheme
+import de.pascal.pillarone.media.PhoneMediaSessions
 
 class MainActivity : ComponentActivity() {
     private val model: DisplayViewModel by viewModels()
@@ -30,6 +36,21 @@ class MainActivity : ComponentActivity() {
     private val enableBluetooth = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { model.refreshAvailability() }
+
+    private val notificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { model.refreshAvailability() }
+
+    private fun connect(device: BleDevice) {
+        model.connect(device)
+        if (BlePermissions.hasPermissions(this) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            !getPreferences(MODE_PRIVATE).getBoolean("notification_requested", false)
+        ) {
+            getPreferences(MODE_PRIVATE).edit().putBoolean("notification_requested", true).apply()
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,10 +85,12 @@ class MainActivity : ComponentActivity() {
                         onEnableLocation = { startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) },
                         onScan = model::startScan,
                         onStopScan = model::stopScan,
-                        onConnect = model::connect,
+                        onConnect = ::connect,
                         onDisconnect = model::disconnect,
                         onSendTurn = model::sendTestTurn,
                         onSendOff = model::sendOff,
+                        media = model.media.collectAsStateWithLifecycle().value,
+                        onEnableMedia = { startActivity(PhoneMediaSessions.settingsIntent(this)) },
                     )
                 }
             }

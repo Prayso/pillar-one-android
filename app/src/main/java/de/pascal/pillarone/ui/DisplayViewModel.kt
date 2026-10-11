@@ -3,18 +3,19 @@ package de.pascal.pillarone.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import de.pascal.pillarone.ble.AndroidBleController
-import de.pascal.pillarone.ble.BleController
+import de.pascal.pillarone.PillarApplication
 import de.pascal.pillarone.ble.BleDevice
 import de.pascal.pillarone.ble.ConnectionPhase
 import de.pascal.pillarone.protocol.MenuConfiguration
+import de.pascal.pillarone.media.PhoneMediaSessions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class DisplayViewModel(application: Application) : AndroidViewModel(application) {
-    private val controller: BleController = AndroidBleController(application)
+    private val controller = (application as PillarApplication).ble
     val state = controller.state
+    val media = PhoneMediaSessions.state
     private val mutableMenuEditor = MutableStateFlow(MenuEditorState())
     val menuEditor = mutableMenuEditor.asStateFlow()
     private val deviceEditors = mutableMapOf<String, MenuEditorState>()
@@ -64,7 +65,10 @@ class DisplayViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun refreshAvailability() = controller.refreshAvailability()
-    fun onAppVisible() = controller.onAppVisible()
+    fun onAppVisible() {
+        PhoneMediaSessions.refresh(getApplication())
+        controller.onAppVisible()
+    }
     fun isPairingUiActive() = controller.isPairingUiActive()
     fun onPairingDialogCovered() = controller.onPairingDialogCovered()
     fun startScan() = controller.startScan()
@@ -78,7 +82,4 @@ class DisplayViewModel(application: Application) : AndroidViewModel(application)
         controller.onAppHidden()
     }
 
-    override fun onCleared() {
-        controller.close()
-    }
 }

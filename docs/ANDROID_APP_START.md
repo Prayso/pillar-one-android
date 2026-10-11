@@ -207,6 +207,19 @@ Offline-Navigation erst zusagen, wenn das ausgewaehlte SDK sie unterstuetzt und 
 
 ## 10. Berechtigungen und Hintergrundbetrieb
 
+Aktueller BLE-/Medienstand: Ein aus der sichtbaren App gestarteter Foreground
+Service vom Typ `connectedDevice` besitzt GATT und Medienuebertragung auch nach
+Home, Activity-Ende, App-Uebersicht und Screen-off. Die Notification bietet
+Trennen; Ablehnung von `POST_NOTIFICATIONS` blockiert die Verbindung nicht.
+Scans bleiben UI-gebunden. Begrenzte Reconnects (2/5/10 Sekunden) enden bei
+terminalem Fehler mit dem Service. Explizites Trennen unterdrueckt Restore auch
+nach Prozessneustart. `START_NOT_STICKY`, kein Boot-Neustart, kein Wake-Lock und
+keine automatische Akkuoptimierungs-Ausnahme. Force-Stop/Task-Manager-Stop
+beenden den Betrieb; OnePlus-Akkueinstellungen bewusst auf dem Geraet pruefen.
+Dies ist kein Standort-/Navigationsservice. Details und offene Hardware-Abnahme:
+[Medienvertrag](protocol/PILLAR_ONE_MEDIA_V1.md). Die folgenden Standort-/SDK-
+Punkte beschreiben weiterhin den spaeteren Navigationsausbau.
+
 - Auf dem Android-13-Testgeraet `BLUETOOTH_SCAN` und `BLUETOOTH_CONNECT` als Laufzeitberechtigungen behandeln. Fuer unterstuetzte aeltere Versionen den passenden Legacy-/Scan-Standortpfad vorsehen.
 - Die App muss fuer ihre Central-Rolle normalerweise nicht selbst werben; `BLUETOOTH_ADVERTISE` nicht pauschal anfordern.
 - Fuer Navigation `ACCESS_COARSE_LOCATION` und `ACCESS_FINE_LOCATION` anfordern; Ablehnung und nur ungefaehren Standort sichtbar behandeln. Standort ist fuer den ersten fest codierten BLE-Test auf Android 13 nicht automatisch notwendig.

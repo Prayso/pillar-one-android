@@ -8,6 +8,7 @@ import de.pascal.pillarone.protocol.MenuConfiguration
 enum class ConnectionPhase { IDLE, CONNECTING, DISCOVERING, BONDING, SUBSCRIBING, HANDSHAKING, READY, RECONNECTING, DISCONNECTED, INCOMPATIBLE, ERROR }
 enum class ProtocolMode { LEGACY, V1 }
 enum class CommandDelivery { BLE_WRITTEN, APP_ACCEPTED }
+enum class MediaBridgeStatus { IDLE, MISSING_CHARACTERISTIC, UNSUPPORTED, SUBSCRIBING, RETRY_WAIT, FAILED, ACTIVE }
 
 enum class BleIssue {
     PERMISSION_REQUIRED, BLUETOOTH_UNAVAILABLE, BLUETOOTH_DISABLED, LOCATION_DISABLED,
@@ -49,6 +50,15 @@ data class BleState(
     val reconnectDelaySeconds: Int = 0,
     val menu: MenuConfiguration? = null,
     val menuOperation: MenuOperation = MenuOperation.IDLE,
+    val mediaBridgeAvailable: Boolean = false,
+    val mediaBridgeEnabled: Boolean = false,
+    val mediaBridgeStatus: MediaBridgeStatus = MediaBridgeStatus.IDLE,
+    val mediaBridgeError: String? = null,
+    val mediaBridgeGattStatus: Int? = null,
+    val mediaBridgeRetryCount: Int = 0,
+    val mediaCharacteristicFound: Boolean = false,
+    val mediaCccdFound: Boolean = false,
+    val lastMetadataGattCompleteAt: Long? = null,
 )
 
 interface BleController {
