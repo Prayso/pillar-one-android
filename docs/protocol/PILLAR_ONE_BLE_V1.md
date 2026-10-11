@@ -85,6 +85,7 @@ maximum message bytes uint16, maximum hint TTL seconds uint16.
 Success requires nonzero device ID, capabilities bits 0 and 1,
 maximum message bytes in 10..192, TTL in 1..30.
 Bit 0 = navigation with expiry; bit 1 = explicit navigation end.
+Bit 2 = [existing menu configuration](PILLAR_ONE_MENU_V1.md).
 Other capability bits are reserved and ignored by v1 Android.
 For rejected HELLO, status is nonzero and the other fields are zero.
 The header version remains 1 even when status is UNSUPPORTED_VERSION.

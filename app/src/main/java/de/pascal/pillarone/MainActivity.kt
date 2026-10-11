@@ -15,6 +15,7 @@ import androidx.activity.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.pascal.pillarone.ble.BlePermissions
 import de.pascal.pillarone.ui.DisplayScreen
+import de.pascal.pillarone.ui.ConfigurationScreen
 import de.pascal.pillarone.ui.DisplayViewModel
 import de.pascal.pillarone.ui.PillarOneApp
 import de.pascal.pillarone.ui.PillarOneTheme
@@ -35,7 +36,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             PillarOneTheme {
-                PillarOneApp {
+                PillarOneApp(
+                    configurationContent = {
+                        ConfigurationScreen(
+                            state = model.state.collectAsStateWithLifecycle().value,
+                            editor = model.menuEditor.collectAsStateWithLifecycle().value,
+                            onLoad = model::loadMenuIfNeeded,
+                            onRead = model::readMenu,
+                            onMove = model::moveMenuPage,
+                            onVisibility = model::setMenuPageVisible,
+                            onStartup = model::setMenuStartupPage,
+                            onSave = model::saveMenu,
+                        )
+                    },
+                ) {
                     DisplayScreen(
                         state = model.state.collectAsStateWithLifecycle().value,
                         onRequestPermissions = { permissions.launch(BlePermissions.requiredPermissions()) },

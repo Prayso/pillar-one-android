@@ -4,7 +4,8 @@ import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
 enum class MessageType(val wire: Int) {
-    HELLO(1), HELLO_ACK(2), NAV_UPDATE(0x10), NAV_END(0x11), ACK(0x80);
+    HELLO(1), HELLO_ACK(2), NAV_UPDATE(0x10), NAV_END(0x11),
+    GET_MENU(0x20), MENU_STATE(0x21), SET_MENU(0x22), ACK(0x80);
 
     companion object {
         fun fromWire(value: Int): MessageType =
@@ -14,7 +15,8 @@ enum class MessageType(val wire: Int) {
 
 enum class AckStatus(val wire: Int) {
     OK(0), UNSUPPORTED_VERSION(1), INVALID_PAYLOAD(2), WRONG_SESSION(3),
-    STALE_SEQUENCE(4), BUSY(5), UNSUPPORTED_COMMAND(6), NOT_AUTHORIZED(7);
+    STALE_SEQUENCE(4), BUSY(5), UNSUPPORTED_COMMAND(6), NOT_AUTHORIZED(7),
+    CONFLICT(8), STORAGE_FAILED(9);
 
     companion object {
         fun fromWire(value: Int): AckStatus =
@@ -22,7 +24,7 @@ enum class AckStatus(val wire: Int) {
     }
 }
 
-class ProtocolException(message: String) : IllegalArgumentException(message)
+open class ProtocolException(message: String) : IllegalArgumentException(message)
 
 data class V1Message(val type: MessageType, val session: Long, val sequence: Int, val payload: ByteArray)
 data class V1Frame(
@@ -39,7 +41,9 @@ data class DeviceCapabilities(
     val bits: Int,
     val maxMessageBytes: Int,
     val maxTtlSeconds: Int,
-)
+) {
+    val supportsMenu: Boolean get() = bits and 4 != 0
+}
 
 data class HelloAck(val status: AckStatus, val capabilities: DeviceCapabilities?)
 data class CommandAck(val request: MessageType, val status: AckStatus)
@@ -111,6 +115,7 @@ object V1Protocol {
     fun helloAck(payload: ByteArray): HelloAck {
         valid(payload.size == 15, "Invalid HELLO_ACK length")
         val status = AckStatus.fromWire(payload.u8(0))
+        valid(status.wire <= 7, "Invalid handshake status")
         if (status != AckStatus.OK) {
             valid(payload.drop(1).all { it == 0.toByte() }, "Invalid rejected HELLO_ACK")
             return HelloAck(status, null)
@@ -131,8 +136,10 @@ object V1Protocol {
     fun commandAck(payload: ByteArray): CommandAck {
         valid(payload.size == 2, "Invalid ACK length")
         val type = MessageType.fromWire(payload.u8(0))
-        valid(type == MessageType.NAV_UPDATE || type == MessageType.NAV_END, "Invalid ACK request type")
-        return CommandAck(type, AckStatus.fromWire(payload.u8(1)))
+        valid(type in setOf(MessageType.NAV_UPDATE, MessageType.NAV_END, MessageType.GET_MENU, MessageType.SET_MENU), "Invalid ACK request type")
+        val status = AckStatus.fromWire(payload.u8(1))
+        valid(status.wire <= 7 || type == MessageType.GET_MENU || type == MessageType.SET_MENU, "Invalid command status")
+        return CommandAck(type, status)
     }
 
     fun testTurn(): NavigationHint = NavigationHint(5, 200, 2, instruction = "Rechts")
@@ -268,9 +275,21 @@ class V1Exchange(val request: V1Message) {
 
     fun accept(message: V1Message): Boolean {
         if (message.session != request.session || message.sequence != request.sequence) return false
+        if (request.type == MessageType.GET_MENU && message.type == MessageType.MENU_STATE) {
+            val entry = MenuProtocol.decodeEntry(message.payload)
+            if (request.payload.size != 1 || entry.index != (request.payload[0].toInt() and 255)) return false
+            if (response == null) response = message
+            return true
+        }
         val expected = if (request.type == MessageType.HELLO) MessageType.HELLO_ACK else MessageType.ACK
         if (message.type != expected) return false
-        if (expected == MessageType.ACK && V1Protocol.commandAck(message.payload).request != request.type) return false
+        if (expected == MessageType.ACK) {
+            val ack = V1Protocol.commandAck(message.payload)
+            if (ack.request != request.type) return false
+            if (request.type == MessageType.GET_MENU && ack.status == AckStatus.OK) {
+                throw ProtocolException("GET_MENU requires a menu entry")
+            }
+        }
         if (expected == MessageType.HELLO_ACK) V1Protocol.helloAck(message.payload)
         if (response == null) response = message
         return true

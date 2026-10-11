@@ -260,9 +260,18 @@ Android-Tests muessen mindestens abdecken:
 
 Einrichtung und Bedienung im Stand. Fahrtests nur mit Beifahrer bzw. sicherem Testaufbau; keine App-Bedienung waehrend eigener Fahrt voraussetzen.
 
-## 13. Spaetere Funktionen und Nicht-Ziele
+## 13. Menuekonfiguration, spaetere Funktionen und Nicht-Ziele
 
 **Menuekonfiguration:** Vorhandene Seiten aktivieren, sortieren und eine Startseite waehlen. Einstellungen per BLE uebertragen und bestaetigt in der Firmware speichern. Das ist Konfiguration, kein erneutes Firmware-Flashen. Ohne Handy bleiben Einstellungen und lokale Seiten erhalten. Lokalen Entwurf nie ungefragt beim Wiederverbinden ueberschreiben lassen.
+
+Dieser erste Schritt ist in der Android-App implementiert. Voraussetzung ist
+die Firmware-Erweiterung nach
+[PILLAR_ONE_MENU_V1.md](protocol/PILLAR_ONE_MENU_V1.md).
+Die App liest das bestehende Menue mit stabilen Seiten-IDs und Revision,
+haelt einen getrennten lokalen Entwurf und prueft nach dem Speichern den
+vollstaendigen Ruecklesestand. Grafiken und Seiteninhalte bleiben vorerst
+fest in der Firmware. Der reale Neustart-/Persistenznachweis ist eine
+separate Hardware-Abnahme nach dem Flashen der neuen Firmware.
 
 **Fahrten:** OBD-Daten vom Display empfangen, lokal mit Zeitstempel/Gueltigkeit speichern, Diagramme und Export anbieten. Keine zweite konkurrierende OBD-Abfrage der App. GPS optional mit Freigabe; Aufzeichnung ohne Handy ist ein gesonderter Firmware-Ausbau.
 

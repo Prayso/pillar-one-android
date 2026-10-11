@@ -3,6 +3,7 @@ package de.pascal.pillarone.ble
 import kotlinx.coroutines.flow.StateFlow
 import de.pascal.pillarone.protocol.AckStatus
 import de.pascal.pillarone.protocol.DeviceCapabilities
+import de.pascal.pillarone.protocol.MenuConfiguration
 
 enum class ConnectionPhase { IDLE, CONNECTING, DISCOVERING, BONDING, SUBSCRIBING, HANDSHAKING, READY, RECONNECTING, DISCONNECTED, INCOMPATIBLE, ERROR }
 enum class ProtocolMode { LEGACY, V1 }
@@ -19,6 +20,7 @@ enum class BleIssue {
 }
 
 enum class TestCommand { TURN_RIGHT, OFF }
+enum class MenuOperation { IDLE, READING, SAVING, SAVED, ERROR }
 
 data class BleDevice(
     val address: String,
@@ -45,6 +47,8 @@ data class BleState(
     val rejection: AckStatus? = null,
     val reconnectAttempt: Int = 0,
     val reconnectDelaySeconds: Int = 0,
+    val menu: MenuConfiguration? = null,
+    val menuOperation: MenuOperation = MenuOperation.IDLE,
 )
 
 interface BleController {
@@ -60,5 +64,7 @@ interface BleController {
     fun disconnect()
     fun sendTestTurn()
     fun sendOff()
+    fun readMenu()
+    fun saveMenu(configuration: MenuConfiguration)
     fun close()
 }

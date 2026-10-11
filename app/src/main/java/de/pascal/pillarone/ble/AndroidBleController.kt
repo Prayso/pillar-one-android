@@ -32,6 +32,10 @@ import de.pascal.pillarone.R
 import de.pascal.pillarone.protocol.LegacyNavigationProtocol
 import de.pascal.pillarone.protocol.AckStatus
 import de.pascal.pillarone.protocol.MessageType
+import de.pascal.pillarone.protocol.MenuConfiguration
+import de.pascal.pillarone.protocol.MenuChangedException
+import de.pascal.pillarone.protocol.MenuProtocol
+import de.pascal.pillarone.protocol.MenuRead
 import de.pascal.pillarone.protocol.ProtocolException
 import de.pascal.pillarone.protocol.V1Exchange
 import de.pascal.pillarone.protocol.V1Message
@@ -83,6 +87,8 @@ class AndroidBleController(context: Context) : BleController {
     private var foregroundReturnTimeout: Runnable? = null
     private val reconnectPolicy = ReconnectPolicy()
     private var reconnectTimeout: Runnable? = null
+    private var menuRead: MenuRead? = null
+    private var menuToSave: MenuConfiguration? = null
 
     private val adapterReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -385,6 +391,8 @@ class AndroidBleController(context: Context) : BleController {
             busy = true, issue = null, lastWrite = null,
             protocol = null, capabilities = null, delivery = null, rejection = null,
             reconnectDelaySeconds = 0,
+            menu = null,
+            menuOperation = if (state.value.menuOperation == MenuOperation.ERROR) MenuOperation.ERROR else MenuOperation.IDLE,
         )
         try {
             gatt = adapter?.getRemoteDevice(device.address)?.connectGatt(
@@ -687,6 +695,9 @@ class AndroidBleController(context: Context) : BleController {
         }
         val operation = exchange ?: return
         try {
+            if (state.value.phase == ConnectionPhase.READY &&
+                message.payload.size > (state.value.capabilities?.maxMessageBytes ?: V1Protocol.MAX_PAYLOAD)
+            ) throw ProtocolException("Response exceeds negotiated payload maximum")
             if (!operation.accept(message)) {
                 Log.d("PillarOneBLE", "Discarded unmatched v1 response")
                 return
@@ -716,6 +727,18 @@ class AndroidBleController(context: Context) : BleController {
     }
 
     private fun finishExchange() {
+        try {
+            completeExchange()
+        } catch (error: MenuChangedException) {
+            Log.w("PillarOneBLE", "Menu snapshot changed during transfer", error)
+            menuFailure(AckStatus.CONFLICT)
+        } catch (error: ProtocolException) {
+            Log.w("PillarOneBLE", "Invalid application response", error)
+            terminate(ConnectionPhase.ERROR, BleIssue.PROTOCOL_INVALID)
+        }
+    }
+
+    private fun completeExchange() {
         val operation = exchange ?: return
         val response = operation.response ?: return
         responseTimeout?.let(handler::removeCallbacks)
@@ -735,7 +758,46 @@ class AndroidBleController(context: Context) : BleController {
             rememberDisplay()
             return
         }
+        if (operation.request.type == MessageType.GET_MENU && response.type == MessageType.MENU_STATE) {
+            val read = menuRead ?: throw ProtocolException("Unexpected menu response")
+            val configuration = read.accept(response.payload)
+            if (configuration == null) {
+                requestMenuEntry(read.nextIndex)
+            } else {
+                val expected = menuToSave
+                if (expected != null && (expected.pages != configuration.pages ||
+                        expected.startupPageId != configuration.startupPageId)
+                ) {
+                    menuFailure(AckStatus.CONFLICT)
+                    return
+                }
+                menuRead = null
+                menuToSave = null
+                mutableState.value = state.value.copy(
+                    busy = false, issue = null, rejection = null, menu = configuration,
+                    menuOperation = if (expected != null) MenuOperation.SAVED else MenuOperation.IDLE,
+                    delivery = null, lastWrite = null,
+                )
+            }
+            return
+        }
         val ack = V1Protocol.commandAck(response.payload)
+        if (operation.request.type == MessageType.GET_MENU || operation.request.type == MessageType.SET_MENU) {
+            if (ack.status == AckStatus.OK) {
+                menuRead = MenuRead()
+                requestMenuEntry(0)
+            } else if (ack.status in setOf(
+                    AckStatus.INVALID_PAYLOAD, AckStatus.BUSY, AckStatus.UNSUPPORTED_COMMAND,
+                    AckStatus.UNSUPPORTED_VERSION, AckStatus.CONFLICT, AckStatus.STORAGE_FAILED,
+                )
+            ) {
+                menuFailure(ack.status)
+            } else {
+                terminate(ConnectionPhase.ERROR, BleIssue.APPLICATION_REJECTED)
+                mutableState.value = state.value.copy(rejection = ack.status)
+            }
+            return
+        }
         val command = pendingWrite
         pendingWrite = null
         if (ack.status == AckStatus.OK) {
@@ -792,6 +854,75 @@ class AndroidBleController(context: Context) : BleController {
         send(TestCommand.OFF)
     }
 
+    override fun readMenu() = onMain {
+        if (!canUseMenu()) return@onMain
+        menuToSave = null
+        menuRead = MenuRead()
+        mutableState.value = state.value.copy(
+            busy = true, issue = null, rejection = null, menu = null,
+            menuOperation = MenuOperation.READING, delivery = null, lastWrite = null,
+        )
+        requestMenuEntry(0)
+    }
+
+    override fun saveMenu(configuration: MenuConfiguration) = onMain {
+        if (!canUseMenu()) return@onMain
+        val payload = try {
+            MenuProtocol.encodeSet(configuration)
+        } catch (_: ProtocolException) {
+            menuFailure(AckStatus.INVALID_PAYLOAD)
+            return@onMain
+        }
+        if (payload.size > (state.value.capabilities?.maxMessageBytes ?: 0)) {
+            menuFailure(AckStatus.UNSUPPORTED_COMMAND)
+            return@onMain
+        }
+        menuToSave = configuration
+        mutableState.value = state.value.copy(
+            busy = true, issue = null, rejection = null, menuOperation = MenuOperation.SAVING,
+            delivery = null, lastWrite = null,
+        )
+        sendMenuMessage(MessageType.SET_MENU, payload)
+    }
+
+    private fun canUseMenu(): Boolean {
+        if (closed || !checkAvailability()) return false
+        if (state.value.busy) {
+            reportBusy()
+            return false
+        }
+        if (state.value.phase != ConnectionPhase.READY || gatt == null || writable == null) {
+            mutableState.value = state.value.copy(issue = BleIssue.CONNECTION_FAILED, menuOperation = MenuOperation.ERROR)
+            return false
+        }
+        if (state.value.protocol != ProtocolMode.V1 || state.value.capabilities?.supportsMenu != true) {
+            menuFailure(AckStatus.UNSUPPORTED_COMMAND)
+            return false
+        }
+        return true
+    }
+
+    private fun requestMenuEntry(index: Int) {
+        sendMenuMessage(MessageType.GET_MENU, byteArrayOf(index.toByte()))
+    }
+
+    private fun sendMenuMessage(type: MessageType, payload: ByteArray) {
+        if (sequence == 65535) {
+            terminate(ConnectionPhase.ERROR, BleIssue.SEQUENCE_EXHAUSTED)
+            return
+        }
+        beginExchange(V1Message(type, wireSession, ++sequence, payload))
+    }
+
+    private fun menuFailure(status: AckStatus) {
+        menuRead = null
+        menuToSave = null
+        mutableState.value = state.value.copy(
+            busy = false, issue = BleIssue.APPLICATION_REJECTED, rejection = status,
+            menuOperation = MenuOperation.ERROR, delivery = null, lastWrite = null,
+        )
+    }
+
     @SuppressLint("MissingPermission")
     private fun send(command: TestCommand) {
         if (closed || !checkAvailability()) return
@@ -834,6 +965,7 @@ class AndroidBleController(context: Context) : BleController {
         pendingWrite = command
         mutableState.value = state.value.copy(
             busy = true, issue = null, lastWrite = null, delivery = null, rejection = null,
+            menuOperation = MenuOperation.IDLE,
         )
         if (state.value.protocol == ProtocolMode.V1) {
             beginExchange(V1Message(
@@ -906,6 +1038,7 @@ class AndroidBleController(context: Context) : BleController {
     }
 
     private fun terminate(phase: ConnectionPhase, issue: BleIssue?) {
+        val menuInterrupted = state.value.menuOperation in setOf(MenuOperation.READING, MenuOperation.SAVING)
         cancelReconnectTimeout()
         val scanReleased = releaseScan()
         val gattReleased = releaseGatt()
@@ -917,6 +1050,8 @@ class AndroidBleController(context: Context) : BleController {
             permissionsGranted = if (revoked) false else state.value.permissionsGranted,
             bluetoothEnabled = if (revoked) false else state.value.bluetoothEnabled,
             reconnectDelaySeconds = 0,
+            menu = null,
+            menuOperation = if (menuInterrupted) MenuOperation.ERROR else state.value.menuOperation,
         )
         if (!revoked && visible && !closed && state.value.permissionsGranted &&
             state.value.bluetoothEnabled
@@ -1005,6 +1140,8 @@ class AndroidBleController(context: Context) : BleController {
         assembler?.reset()
         assembler = null
         exchange = null
+        menuRead = null
+        menuToSave = null
         pendingDescriptor = null
         awaitingWrite = false
         wireSession = 0

@@ -37,7 +37,10 @@ private enum class AppPage(
 }
 
 @Composable
-fun PillarOneApp(displayContent: @Composable () -> Unit) {
+fun PillarOneApp(
+    configurationContent: @Composable () -> Unit = { ConfigurationScreen() },
+    displayContent: @Composable () -> Unit,
+) {
     var selectedPage by rememberSaveable { mutableStateOf(AppPage.DISPLAY) }
     val pageState = rememberSaveableStateHolder()
 
@@ -67,7 +70,7 @@ fun PillarOneApp(displayContent: @Composable () -> Unit) {
             pageState.SaveableStateProvider(selectedPage) {
                 when (selectedPage) {
                     AppPage.DISPLAY -> displayContent()
-                    AppPage.CONFIGURATION -> ConfigurationScreen()
+                    AppPage.CONFIGURATION -> configurationContent()
                 }
             }
         }

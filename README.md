@@ -5,9 +5,29 @@ Vorbereitung des A2-App-Vertrags**, noch kein Navigations-SDK.
 Paketname und Application ID: `de.pascal.pillarone`.
 
 Die untere Navigation wechselt zwischen **Display** (Verbindung und Testhinweis)
-und **Konfiguration**. Die Konfigurationsseite fuer die Seiten des Pillar One
-ist vorerst ein Platzhalter ohne Einstellfunktionen. Beim Wechsel bleiben die
+und **Konfiguration**. Dort lassen sich vorhandene Pillar-One-Seiten auslesen,
+sortieren, ein-/ausblenden und als Startseite festlegen. Beim Wechsel bleiben die
 BLE-Sitzung und die Scrollposition der Displayseite erhalten.
+
+Die Menuefunktion setzt die neue Firmware mit Menu-Capability voraus; aeltere
+Displays zeigen einen Updatehinweis, Navigation bleibt unveraendert nutzbar.
+Die App liest Namen und stabile Seiten-IDs vom Display, nicht den UI-Code.
+Entwuerfe bleiben beim Seitenwechsel, Drehen und Wiederverbinden erhalten
+(waehrend dieses App-Prozesses, getrennt je Display). Erneutes Auslesen
+verwirft lokale Aenderungen nur nach Bestaetigung.
+
+**Auf Pillar One speichern** uebertraegt das gesamte Menue mit erwarteter
+Revision. Erst nach dauerhafter Firmware-Bestaetigung und vollstaendigem
+Ruecklesen erscheint der Speichererfolg. Bei Abbruch nicht blind erneut
+senden: verbinden und den tatsaechlichen Stand auslesen. Die Startseite bleibt
+sichtbar; zum Ausblenden zuerst eine andere Startseite waehlen.
+Navigation und Medien sind keine waehlbaren Startseiten, da diese Seiten
+ein verbundenes Handy benoetigen. Die App liest diese Einschraenkung aus
+dem Seitenkatalog der Firmware.
+Seiteninhalte, eigene Grafiken und neue Seiten sind noch nicht bearbeitbar.
+Die Firmware muss separat gebaut/geflasht werden; die App bietet kein OTA.
+Vertrag und Hardware-Abnahme:
+[Menue-Erweiterung](docs/protocol/PILLAR_ONE_MENU_V1.md).
 
 ## Werkzeugstand
 

@@ -49,6 +49,7 @@ import de.pascal.pillarone.ble.ConnectionPhase
 import de.pascal.pillarone.ble.ProtocolMode
 import de.pascal.pillarone.ble.CommandDelivery
 import de.pascal.pillarone.ble.TestCommand
+import de.pascal.pillarone.ble.MenuOperation
 import de.pascal.pillarone.protocol.AckStatus
 
 @Composable
@@ -161,7 +162,10 @@ fun DisplayScreen(
                         }
                         state.issue?.takeIf { issueMessage(it) != connectionStatus(state) }?.let {
                             Text(
-                                stringResource(issueMessage(it)),
+                                stringResource(
+                                    if (state.menuOperation == MenuOperation.ERROR) R.string.menu_failed
+                                    else issueMessage(it),
+                                ),
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.testTag("connection-error").semantics {
                                     liveRegion = LiveRegionMode.Polite
@@ -272,7 +276,9 @@ fun DisplayScreen(
                         ) { Text(stringResource(R.string.send_off)) }
                         if (state.busy && state.phase == ConnectionPhase.READY) {
                             Text(stringResource(
-                                if (state.protocol != ProtocolMode.V1) R.string.write_busy
+                                if (state.menuOperation == MenuOperation.READING) R.string.menu_reading
+                                else if (state.menuOperation == MenuOperation.SAVING) R.string.menu_saving
+                                else if (state.protocol != ProtocolMode.V1) R.string.write_busy
                                 else if (state.delivery == CommandDelivery.BLE_WRITTEN) R.string.application_busy
                                 else R.string.ack_busy,
                             ), Modifier.testTag("command-progress"))
@@ -382,6 +388,8 @@ private fun rejectionMessage(status: AckStatus): Int = when (status) {
     AckStatus.INVALID_PAYLOAD -> R.string.rejection_invalid
     AckStatus.WRONG_SESSION, AckStatus.STALE_SEQUENCE -> R.string.rejection_reconnect
     AckStatus.NOT_AUTHORIZED -> R.string.rejection_unauthorized
+    AckStatus.CONFLICT -> R.string.menu_conflict
+    AckStatus.STORAGE_FAILED -> R.string.menu_storage_failed
 }
 
 @StringRes
