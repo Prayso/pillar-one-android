@@ -5,7 +5,7 @@ import java.nio.charset.CodingErrorAction
 
 enum class MessageType(val wire: Int) {
     HELLO(1), HELLO_ACK(2), NAV_UPDATE(0x10), NAV_END(0x11),
-    GET_MENU(0x20), MENU_STATE(0x21), SET_MENU(0x22), ACK(0x80);
+    GET_MENU(0x20), MENU_STATE(0x21), SET_MENU(0x22), ACCELERATION_SAMPLE(0x30), ACK(0x80);
 
     companion object {
         fun fromWire(value: Int): MessageType =
@@ -43,6 +43,8 @@ data class DeviceCapabilities(
     val maxTtlSeconds: Int,
 ) {
     val supportsMenu: Boolean get() = bits and 4 != 0
+    val supportsAcceleration: Boolean get() = bits and 8 != 0
+    val supportsAutomaticAcceleration: Boolean get() = supportsAcceleration && bits and 16 != 0
 }
 
 data class HelloAck(val status: AckStatus, val capabilities: DeviceCapabilities?)

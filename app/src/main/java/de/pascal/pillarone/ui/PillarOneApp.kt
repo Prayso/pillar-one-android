@@ -13,7 +13,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,11 +33,15 @@ private enum class AppPage(
 ) {
     DISPLAY(R.string.navigation_display, R.drawable.ic_display, "navigation-display"),
     CONFIGURATION(R.string.navigation_configuration, R.drawable.ic_configuration, "navigation-configuration"),
+    ANALYSIS(R.string.navigation_analysis, R.drawable.ic_analysis, "navigation-analysis"),
+    SETTINGS(R.string.navigation_settings, R.drawable.ic_settings, "navigation-settings"),
 }
 
 @Composable
 fun PillarOneApp(
     configurationContent: @Composable () -> Unit = { ConfigurationScreen() },
+    analysisContent: @Composable () -> Unit = { AnalysisScreen() },
+    settingsContent: @Composable () -> Unit = { SettingsScreen() },
     displayContent: @Composable () -> Unit,
 ) {
     var selectedPage by rememberSaveable { mutableStateOf(AppPage.DISPLAY) }
@@ -55,9 +58,12 @@ fun PillarOneApp(
                         selected = selectedPage == page,
                         onClick = { selectedPage = page },
                         icon = {
-                            Icon(painterResource(page.icon), contentDescription = null)
+                            Icon(
+                                painterResource(page.icon),
+                                contentDescription = stringResource(page.label),
+                            )
                         },
-                        label = { Text(stringResource(page.label)) },
+                        label = null,
                         modifier = Modifier.testTag(page.tag),
                     )
                 }
@@ -71,6 +77,8 @@ fun PillarOneApp(
                 when (selectedPage) {
                     AppPage.DISPLAY -> displayContent()
                     AppPage.CONFIGURATION -> configurationContent()
+                    AppPage.ANALYSIS -> analysisContent()
+                    AppPage.SETTINGS -> settingsContent()
                 }
             }
         }

@@ -31,6 +31,7 @@ import androidx.core.content.ContextCompat
 import de.pascal.pillarone.R
 import de.pascal.pillarone.protocol.LegacyNavigationProtocol
 import de.pascal.pillarone.protocol.AckStatus
+import de.pascal.pillarone.protocol.AccelerationTelemetryCodec
 import de.pascal.pillarone.protocol.MessageType
 import de.pascal.pillarone.protocol.MenuConfiguration
 import de.pascal.pillarone.protocol.MenuChangedException
@@ -439,6 +440,7 @@ class AndroidBleController internal constructor(
             protocol = null, capabilities = null, delivery = null, rejection = null,
             reconnectDelaySeconds = 0,
             menu = null,
+            acceleration = null, accelerationReceivedAt = 0,
             menuOperation = if (state.value.menuOperation == MenuOperation.ERROR) MenuOperation.ERROR else MenuOperation.IDLE,
         )
         try {
@@ -830,11 +832,21 @@ class AndroidBleController internal constructor(
             }
             return
         }
-        val operation = exchange ?: return
         try {
             if (state.value.phase == ConnectionPhase.READY &&
                 message.payload.size > (state.value.capabilities?.maxMessageBytes ?: V1Protocol.MAX_PAYLOAD)
             ) throw ProtocolException("Response exceeds negotiated payload maximum")
+            if (message.type == MessageType.ACCELERATION_SAMPLE) {
+                if (state.value.phase != ConnectionPhase.READY ||
+                    state.value.capabilities?.supportsAcceleration != true
+                ) throw ProtocolException("Unadvertised acceleration telemetry")
+                mutableState.value = state.value.copy(
+                    acceleration = AccelerationTelemetryCodec.decode(message.payload),
+                    accelerationReceivedAt = now,
+                )
+                return
+            }
+            val operation = exchange ?: return
             if (!operation.accept(message)) {
                 Log.d("PillarOneBLE", "Discarded unmatched v1 response")
                 return

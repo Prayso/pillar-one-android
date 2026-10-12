@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 import de.pascal.pillarone.protocol.AckStatus
 import de.pascal.pillarone.protocol.DeviceCapabilities
 import de.pascal.pillarone.protocol.MenuConfiguration
+import de.pascal.pillarone.protocol.AccelerationTelemetry
 
 enum class ConnectionPhase { IDLE, CONNECTING, DISCOVERING, BONDING, SUBSCRIBING, HANDSHAKING, READY, RECONNECTING, DISCONNECTED, INCOMPATIBLE, ERROR }
 enum class ProtocolMode { LEGACY, V1 }
@@ -59,6 +60,8 @@ data class BleState(
     val mediaCharacteristicFound: Boolean = false,
     val mediaCccdFound: Boolean = false,
     val lastMetadataGattCompleteAt: Long? = null,
+    val acceleration: AccelerationTelemetry? = null,
+    val accelerationReceivedAt: Long = 0,
 )
 
 interface BleController {

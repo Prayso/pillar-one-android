@@ -4,10 +4,77 @@ Native Android-App mit Kotlin und Jetpack Compose. **A1-BLE-Prototyp mit
 Vorbereitung des A2-App-Vertrags**, noch kein Navigations-SDK.
 Paketname und Application ID: `de.pascal.pillarone`.
 
-Die untere Navigation wechselt zwischen **Display** (Verbindung und Testhinweis)
-und **Konfiguration**. Dort lassen sich vorhandene Pillar-One-Seiten auslesen,
+Die untere Navigation wechselt zwischen **Display** (Verbindung und Testhinweis),
+**Konfiguration** und **Auswertungen**. In der Konfiguration lassen sich vorhandene Pillar-One-Seiten auslesen,
 sortieren, ein-/ausblenden und als Startseite festlegen. Beim Wechsel bleiben die
 BLE-Sitzung und die Scrollposition der Displayseite erhalten.
+
+## Beschleunigungsauswertungen
+
+**Auswertungen** unterscheidet Beschleunigung und Fahrten. Fahrten sind vorerst
+nur ein Hinweis auf den spaeteren Ausbau. **Automatische GPS-Auswertung aktivieren**
+zeigt einmalig die Einwilligung fuer Standort/Geschwindigkeit, lokale Speicherung
+und Hintergrundbetrieb; danach folgt die genaue Android-Standortfreigabe.
+Die Einwilligung bleibt gespeichert und kann jederzeit auf der Auswertungsseite
+oder in der Aufzeichnungsbenachrichtigung deaktiviert werden.
+Ein verbundenes Display mit automatischem Beschleunigungs-Seitenstatus ist
+erforderlich. Die Standortfreigabe wird nicht fuer die normale BLE-Verbindung
+angefordert. Nur auf dafuer freigegebenen, abgesperrten Strecken messen und
+die App vor der Fahrt bedienen.
+
+Abgeschlossene 0-100- und 100-200-km/h-Messungen werden automatisch in der
+privaten SQLite-Datenbank auf dem Handy gespeichert: Intervall, Startdatum/-zeit
+mit Zeitzone, Start- und Zielkoordinaten mit Standortgenauigkeit (sofern verfuegbar),
+GPS-/Auto-Dauer und Display-ID. Jeder Quellenwert behaelt intern seinen eigenen
+Start-/Endzeitpunkt. Die Fahrzeugmessung am Display ist massgeblich; GPS und Auto
+messen unabhaengig, aber GPS wird nur einer tatsaechlichen Auto-Messung zugeordnet.
+Nur eindeutige Ergebnisse
+mit Start und Ende innerhalb von jeweils zwei Sekunden werden zusammengefuehrt.
+Fehlende Quellen/Standorte werden als nicht verfuegbar angezeigt, nicht geschaetzt.
+Die Historie bleibt bei App-Neustarts erhalten, nicht nach Deinstallation oder
+Loeschen der App-Daten. Es gibt keinen Cloud-Upload und kein Android-Backup.
+
+GPS nutzt ausschliesslich frische GPS-Fixes (maximal zwei Sekunden alt,
+Standortgenauigkeit bis 30 m, bestaetigte Geschwindigkeitsgenauigkeit bis 3 m/s);
+Fixes ohne Geschwindigkeitsgenauigkeit und simulierte Standorte werden
+ausgeschlossen. Der 0-100-Start ist
+der letzte Stillstandsfix vor der ersten Bewegung ueber 1 km/h;
+100-/200-km/h-Uebergaenge
+werden zwischen GPS-Samples interpoliert. Luecken ueber zwei Sekunden und
+deutliche Verzoegerung brechen unvollstaendige GPS-Messungen ab.
+Auto-Zeiten stammen direkt aus der realen OBD-Messung der Firmware, nicht aus
+einer zweiten OBD-Abfrage. Bereits vor Aufzeichnungsstart abgeschlossene
+Display-Ergebnisse und Firmware-Demowerte werden nicht importiert.
+
+Die App bereitet bei sichtbarer UI einen Standort-Foreground-Service vor.
+Eine dauerhafte Benachrichtigung zeigt Bereitschaft oder aktive GPS-Erfassung an.
+Die Android-Benachrichtigungsfreigabe und der Kanal Beschleunigungsauswertung
+muessen aktiviert sein; bei Ablehnung bleibt die GPS-Einwilligung gespeichert,
+aber die App zeigt den notwendigen Einstellungsschritt statt still im
+Hintergrund aufzuzeichnen.
+GPS wird erst beim Oeffnen der Beschleunigungsseite am Pillar One abonniert und
+beim Verlassen wieder beendet. Home, Sperren und Activity-Ende beenden einen
+bereits gestarteten Service nicht; eine Hintergrundstandortberechtigung wird
+nicht benoetigt. Der Bildschirm muss nicht eingeschaltet bleiben.
+Trennen, Deaktivieren, Force-Stop oder Androids Task-Manager-Stop beenden die
+Bereitschaft. Nach Prozessende muss die App vor der naechsten Messung wieder
+geoeffnet werden: Android erlaubt keinen beliebigen Start eines
+Standort-Foreground-Service aus dem Hintergrund.
+Vollstaendige Ergebnisse bleiben gespeichert; angefangene Messungen werden
+beim Verlassen der Displayseite verworfen. Bei Speicherfehlern
+zeigt die App einen Fehler und bietet eine Wiederholung an; ungespeicherte
+Ergebnisse bleiben nur bis zum Prozessende im Arbeitsspeicher.
+
+Auto-Messungen erfordern die separat zu flashende Beschleunigungs-Erweiterung:
+[BLE-Vertrag](docs/protocol/PILLAR_ONE_ACCELERATION_V1.md).
+Grafiken, Vergleiche, Export und eine Nachsynchronisation von Messungen ohne
+aktive Handy-Aufzeichnung sind noch nicht implementiert.
+Die Datenbank wird verlustfrei auf das Endpunkt-Schema aktualisiert;
+alte Messungen behalten ihre Werte, haben aber keinen nachtraeglich erfundenen
+Zielstandort. Gespeicherte Standortpunkte sind echte GPS-Fixes in zeitlicher
+Naehe zum Start/Ziel, keine Garantie fuer eine zentimetergenaue Schwellenposition.
+GPS-Qualitaet, Hintergrundbetrieb, zeitliche Quellenzuordnung und reale OBD-Messungen muessen
+mit Handy und Display auf einer geeigneten Teststrecke abgenommen werden.
 
 Die Menuefunktion setzt die neue Firmware mit Menu-Capability voraus; aeltere
 Displays zeigen einen Updatehinweis, Navigation bleibt unveraendert nutzbar.
@@ -89,6 +156,8 @@ Standorte aus Scandaten abgeleitet werden. Die Scanerkennung mit echter
 Firmware muss trotzdem geprueft werden. Beim Verbinden wird ab Android 13 die
 Benachrichtigungsfreigabe angefragt; Ablehnung blockiert BLE nicht. Keine
 Advertising-, Internet- oder Hintergrundstandortfreigabe wird angefordert.
+Die optionale GPS-Beschleunigungsaufzeichnung fragt separat den genauen
+Vordergrundstandort an.
 
 ## Architektur und Grenzen
 
