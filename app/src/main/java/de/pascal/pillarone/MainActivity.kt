@@ -99,13 +99,10 @@ class MainActivity : ComponentActivity() {
                 val analysisState = analysis.state.collectAsStateWithLifecycle().value
                 PillarOneApp(
                     analysisContent = {
-                        val connection = model.state.collectAsStateWithLifecycle().value
                         AnalysisScreen(
                             state = analysisState,
-                            carSupported = connection.phase == ConnectionPhase.READY &&
-                                connection.capabilities?.supportsAutomaticAcceleration == true,
                             onEnableAutomatic = ::enableAutomaticRecording,
-                            onDisableAutomatic = analysis::disableAutomatic,
+                            onDelete = analysis::deleteRecord,
                             onRetry = analysis::retryStorage,
                             onSettings = {
                                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {

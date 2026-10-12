@@ -30,7 +30,38 @@ data class AccelerationRecord(
     val carDurationMs: Long?,
     val deviceId: String?,
     val endLocation: MeasurementLocation? = null,
+    val results: List<AccelerationResult> = emptyList(),
 )
+
+data class AccelerationResult(
+    val source: MeasurementSource,
+    val startedAt: Long,
+    val endedAt: Long,
+    val durationMs: Long,
+    val location: MeasurementLocation?,
+    val endLocation: MeasurementLocation?,
+    val deviceId: String?,
+)
+
+enum class AccelerationSort {
+    NEWEST, OLDEST, GPS_FASTEST, GPS_SLOWEST, CAR_FASTEST, CAR_SLOWEST;
+
+    fun sorted(records: List<AccelerationRecord>): List<AccelerationRecord> {
+        if (this == NEWEST) return records.sortedWith(
+            compareByDescending<AccelerationRecord> { it.startedAt }.thenByDescending { it.id })
+        if (this == OLDEST) return records.sortedWith(
+            compareBy<AccelerationRecord> { it.startedAt }.thenBy { it.id })
+        fun duration(record: AccelerationRecord) = when (this) {
+            GPS_FASTEST, GPS_SLOWEST -> record.gpsDurationMs
+            else -> record.carDurationMs
+        }
+        val times = if (this == GPS_FASTEST || this == CAR_FASTEST)
+            compareBy<AccelerationRecord> { duration(it) }
+        else compareByDescending { record: AccelerationRecord -> duration(record) }
+        return records.sortedWith(compareBy<AccelerationRecord> { duration(it) == null }
+            .then(times).thenByDescending { it.startedAt }.thenByDescending { it.id })
+    }
+}
 
 class GpsAccelerationDetector {
     private data class Sample(val speed: Double, val time: Long, val location: MeasurementLocation)

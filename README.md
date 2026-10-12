@@ -65,6 +65,19 @@ beim Verlassen der Displayseite verworfen. Bei Speicherfehlern
 zeigt die App einen Fehler und bietet eine Wiederholung an; ungespeicherte
 Ergebnisse bleiben nur bis zum Prozessende im Arbeitsspeicher.
 
+Im Beschleunigungs-Tab stehen kompakte Karten mit Intervall, Datum/Uhrzeit
+und Zeiten in der Reihenfolge **GPS / Auto**; ein Strich bedeutet nicht gemessen.
+Der Filter zeigt alle, 0-100 oder 100-200 km/h. Sortiert werden kann nach
+Datum/Uhrzeit (neueste/aelteste) sowie separat nach GPS- oder Auto-Zeit
+(schnellste/langsamste); fehlende Zeiten stehen jeweils am Ende.
+Antippen oeffnet eine eigene scrollbare Detailseite mit Zeitzone sowie den Zeiten,
+Start-/Zielzeitpunkten, Koordinaten, Genauigkeiten und Display-ID je Messquelle.
+Der Pfeil oben links oder Android-Zurueck fuehrt zur Liste zurueck; Filter,
+Sortierung und Listenposition bleiben erhalten. Das untere Menue bleibt sichtbar.
+Nach links wischen zeigt einen roten Papierkorb; erst dessen Antippen loescht
+die gesamte Messung samt GPS-/Auto-Ergebnissen und Standorten dauerhaft.
+Die GPS-Freigabe wird unter **Einstellungen** verwaltet.
+
 Auto-Messungen erfordern die separat zu flashende Beschleunigungs-Erweiterung:
 [BLE-Vertrag](docs/protocol/PILLAR_ONE_ACCELERATION_V1.md).
 Grafiken, Vergleiche, Export und eine Nachsynchronisation von Messungen ohne

@@ -13,4 +13,5 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
     fun locationDenied() = runtime.locationDenied()
     fun notificationDenied() = runtime.notificationDenied()
     fun retryStorage() = runtime.retryStorage()
+    fun deleteRecord(recordId: Long) = runtime.deleteRecord(recordId)
 }

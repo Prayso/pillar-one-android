@@ -114,7 +114,30 @@ class AccelerationStore(context: Context, databaseName: String = "acceleration.d
     }
 
     @Synchronized
+    fun delete(recordId: Long) {
+        writableDatabase.delete("measurements", "id = ?", arrayOf(recordId.toString()))
+    }
+
+    @Synchronized
     fun records(): List<AccelerationRecord> {
+        val results = mutableMapOf<Long, MutableList<AccelerationResult>>()
+        readableDatabase.rawQuery("""
+            SELECT record_id, source, started_at, ended_at, duration_ms,
+                latitude, longitude, accuracy, end_latitude, end_longitude, end_accuracy, device_id
+            FROM results ORDER BY source DESC
+        """.trimIndent(), null).use { cursor ->
+            while (cursor.moveToNext()) {
+                results.getOrPut(cursor.getLong(0)) { mutableListOf() } += AccelerationResult(
+                    MeasurementSource.valueOf(cursor.getString(1)), cursor.getLong(2),
+                    cursor.getLong(3), cursor.getLong(4),
+                    if (cursor.isNull(5)) null else MeasurementLocation(
+                        cursor.getDouble(5), cursor.getDouble(6), cursor.getFloat(7)),
+                    if (cursor.isNull(8)) null else MeasurementLocation(
+                        cursor.getDouble(8), cursor.getDouble(9), cursor.getFloat(10)),
+                    if (cursor.isNull(11)) null else cursor.getString(11),
+                )
+            }
+        }
         val records = mutableListOf<AccelerationRecord>()
         readableDatabase.rawQuery("""
             SELECT m.id, m.interval, m.started_at, m.zone_id,
@@ -140,6 +163,7 @@ class AccelerationStore(context: Context, databaseName: String = "acceleration.d
                     if (cursor.isNull(10)) null else MeasurementLocation(
                         cursor.getDouble(10), cursor.getDouble(11), cursor.getFloat(12),
                     ),
+                    results[cursor.getLong(0)].orEmpty(),
                 )
             }
         }

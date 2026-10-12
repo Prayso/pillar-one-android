@@ -446,6 +446,23 @@ class AccelerationRecordingRuntime internal constructor(
         }
     }
 
+    fun deleteRecord(recordId: Long) {
+        scope.launch {
+            persistence.withLock {
+                try {
+                    withContext(Dispatchers.IO) { store.delete(recordId) }
+                    mutableState.value = state.value.copy(
+                        records = state.value.records.filterNot { it.id == recordId },
+                        error = state.value.error.takeUnless { it == R.string.analysis_delete_failed },
+                    )
+                } catch (error: SQLiteException) {
+                    Log.e("PillarOneAnalysis", "Acceleration deletion failed", error)
+                    mutableState.value = state.value.copy(error = R.string.analysis_delete_failed)
+                }
+            }
+        }
+    }
+
     companion object {
         internal const val FRESH_CAR_MS = 3_000L
         internal const val FRESH_GPS_MS = 2_000L

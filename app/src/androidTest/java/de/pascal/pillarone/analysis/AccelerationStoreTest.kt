@@ -63,6 +63,42 @@ class AccelerationStoreTest {
         assertEquals(2, store.records().size)
     }
 
+    @Test fun deleteRemovesBothSourcesAndLocationsPermanentlyButKeepsOtherRuns() {
+        store.save(result("gps", MeasurementSource.GPS), 0, "UTC", "first")
+        store.save(result("car", MeasurementSource.CAR), 0, "UTC", "first")
+        store.save(result("other", MeasurementSource.CAR, 20_000, 25_000), 0, "UTC", "second")
+        val id = store.records().last().id
+        store.delete(id)
+        store.close()
+        store = AccelerationStore(context, "acceleration-test.db")
+        assertEquals(20_000L, store.records().single().startedAt)
+        store.readableDatabase.rawQuery("SELECT COUNT(*) FROM results WHERE record_id = ?",
+            arrayOf(id.toString())).use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+    }
+
+    @Test fun detailsKeepSourceSpecificTimestampsAndLocations() {
+        store.save(result("gps", MeasurementSource.GPS), 1_000_000, "UTC", "recording")
+        store.save(result("car", MeasurementSource.CAR, 1_100, 6_500).copy(
+            location = MeasurementLocation(51.0, 9.0, 8f),
+            endLocation = MeasurementLocation(51.1, 9.1, 9f)),
+            1_000_000, "UTC", "recording")
+        val results = store.records().single().results
+        assertEquals(2, results.size)
+        val gps = results.single { it.source == MeasurementSource.GPS }
+        val car = results.single { it.source == MeasurementSource.CAR }
+        assertEquals(1_001_000L, gps.startedAt)
+        assertEquals(1_006_000L, gps.endedAt)
+        assertEquals(50.0, gps.location!!.latitude, 0.0)
+        assertEquals(1_001_100L, car.startedAt)
+        assertEquals(1_006_500L, car.endedAt)
+        assertEquals(51.0, car.location!!.latitude, 0.0)
+        assertEquals(51.1, car.endLocation!!.latitude, 0.0)
+        assertEquals("display", car.deviceId)
+    }
+
     @Test fun upgradeKeepsExistingMeasurementsWithoutInventingAnEndpoint() {
         store.save(result("old", MeasurementSource.CAR), 0, "UTC", "old-recording")
         val id = store.records().single().id
